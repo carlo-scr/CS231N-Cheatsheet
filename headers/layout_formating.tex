@@ -1,0 +1,78 @@
+% colors
+\usepackage{color,xcolor}
+\definecolor{section}{HTML}{1c59c9}
+\definecolor{subsection}{HTML}{568ae8}
+\definecolor{subsubsection}{HTML}{87a9e8}
+\definecolor{titletext}{RGB}{0,0,0}
+
+% colored box for section
+\setkomafont{section}{\mysection}
+\newcommand{\mysection}[1]{%
+    \setlength{\fboxsep}{0cm}%already boxed
+    \colorbox{section}{%
+        \begin{minipage}{\linewidth}%
+            \vspace*{2pt}%Space before
+            \hspace{2pt}%left indent
+            #1
+            \vspace*{2pt}%Space after
+        \end{minipage}%
+    }}
+% colored box for subsection
+\setkomafont{subsection}{\mysubsection}
+\newcommand{\mysubsection}[1]{%
+    \setlength{\fboxsep}{0cm}%already boxed
+    \colorbox{subsection}{%
+        \begin{minipage}{\linewidth}%
+            \vspace*{2pt}%Space before
+            \hspace{2pt}%left indent
+            #1
+            \vspace*{2pt}%Space after
+        \end{minipage}%
+    }}
+% colored box for subsection
+\setkomafont{subsubsection}{\mysubsubsection}
+\newcommand{\mysubsubsection}[1]{%
+    \setlength{\fboxsep}{0cm}%already boxed
+    \colorbox{subsubsection}{%
+        \begin{minipage}{\linewidth}%
+            \vspace*{2pt}%Space before
+            \hspace{2pt}%left indent
+            #1
+            \vspace*{2pt}%Space after
+        \end{minipage}%
+    }}
+
+% decrease wasted space in title
+\RedeclareSectionCommand[
+  %runin=false,
+  afterindent=false,
+  beforeskip=.25\baselineskip,
+  afterskip=.25\baselineskip]{section}
+\RedeclareSectionCommand[
+  %runin=false,
+  afterindent=false,
+  beforeskip=.25\baselineskip,
+  afterskip=.25\baselineskip]{subsection}
+\RedeclareSectionCommand[
+  %runin=false,
+  afterindent=false,
+  beforeskip=.2\baselineskip,
+  afterskip=.25\baselineskip]{subsubsection}
+\RedeclareSectionCommand[
+  runin=true,
+  %afterindent=false,
+  beforeskip=.25\baselineskip,
+  afterskip=1em]{paragraph}
+\RedeclareSectionCommand[
+  runin=true,
+  %afterindent=false,
+  beforeskip=.5\baselineskip,
+  afterskip=1em]{subparagraph}
+
+% set the size of a section
+\usepackage{parskip}
+\setlength{\parindent}{0pt}
+\setlength{\parskip}{0pt plus 0.5ex}
+
+% un-comment to hide the section numbering
+%\setcounter{secnumdepth}{0} 

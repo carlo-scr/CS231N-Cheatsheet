@@ -1,0 +1,25 @@
+%Mathematik-Pakete
+\usepackage{amsmath, amstext, amssymb, mathtools}
+\usepackage{bm}
+\allowdisplaybreaks %Seitenumbruch in align-Umgebung erlauben
+%
+
+%Definition der Umgebung "example"
+\newenvironment {example}
+				{\begin{itshape} \begin{small}}
+				{\end{small} \end{itshape}}
+%				
+%Definition der Umgebung "annotation"		
+\newenvironment {annotation}[1]
+				{\begin{itshape} \begin{small} \textbf{#1} \begin{itemize}}
+				{\end{itemize} \end{small} \end{itshape}}
+%				
+%Definition der Umgebung "eq"
+\newenvironment {eq}
+				{\begin{equation*}}
+				{\end{equation*}}
+%
+% Don't know what this does
+\providecommand{\diff}{\mathop{} \! \mathrm{d}}
+\DeclareMathOperator{\rot}{rot}
+\DeclareMathOperator{\divg}{div}

@@ -1,0 +1,38 @@
+% document setup
+\usepackage[margin=7mm,landscape]{geometry} % margin = .. total={280mm,190 mm} % in geometry for defined size/ratio
+\usepackage{multicol,multirow}
+\usepackage[utf8]{inputenc} % not strictly necessary, but sets utf8
+
+% enable colors
+\usepackage{xcolor,color} % standard colors (blue, red, etc.https://www.namsu.de/Extra/pakete/Xcolor.html )
+
+% multicol settings
+\setlength{\premulticols}{1pt}
+\setlength{\postmulticols}{1pt}
+\setlength{\multicolsep}{1pt}
+\setlength{\columnsep}{5pt}
+\setlength{\columnseprule}{1pt}
+\def\columnseprulecolor{\color{black}}
+
+% language
+\usepackage[english]{babel} %choose your language
+
+% for images
+\usepackage{graphicx}
+\graphicspath{ {./images/} }
+
+% Images combined with texts
+\usepackage{wrapfig}
+
+% some AsmTeX options
+\usepackage{amscd, amsmath,amssymb}
+
+% more fine control for lists
+\usepackage{enumitem}
+
+% multiple line comments and testing text
+\usepackage{verbatim} % \begin{comment} \end{comment} 
+%\usepackage{blindtext} % inserts lorem ipsum like text (not installed)
+
+% hyperlinks (has to be after titlesec, else we get errors
+\usepackage[colorlinks=true,citecolor=blue,linkcolor=blue]{hyperref}

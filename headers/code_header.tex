@@ -1,0 +1,80 @@
+%-----------------------------------------------------%
+% for colours
+\usepackage{color}
+% from code expert "ce_"
+\definecolor{ce_yellow}{rgb}{0.902,0.859,0.455}
+\definecolor{ce_gray}{rgb}{0.459,0.443,0.369}
+\definecolor{ce_lime}{rgb}{0.459,0.816,0.180}
+\definecolor{ce_pink}{rgb}{0.976,0.149,0.447}
+\definecolor{ce_cyan}{rgb}{0.40,0.851,0.937}
+\definecolor{ce_violet}{rgb}{0.545,0.506,1.00}
+\definecolor{ce_back}{rgb}{0.153,0.157,0.133}
+\definecolor{ce_white}{rgb}{1,1,1}
+%----------------------------------------------------%
+% as close to CodeExpert as i could get it
+\usepackage{listings}
+
+\lstdefinestyle{CodeExpert}{
+    language=C++,
+    basicstyle=\ttfamily\linespread{0.8}\color{ce_white},
+    numbers=none,
+    aboveskip=0mm,
+    belowskip=0mm,
+    frame = none,
+    numberstyle=\tiny\color{ce_grey},
+    backgroundcolor = \color{ce_back},
+    keywordstyle=\color{ce_cyan},
+    commentstyle=\color{ce_gray},
+    stringstyle=\color{ce_yellow},
+    morecomment=[n][\color{ce_pink}]{\#}{\ },
+    literate=
+    *{./}{{{\color{ce_pink}./}}}2
+    {.^}{{{\color{ce_pink}.\^{}}}}2
+    {=}{{{\color{ce_pink}=}}}1
+    {+}{{{\color{ce_pink}+}}}1
+    {*}{{{\color{ce_pink}*}}}1
+    {-}{{{\color{ce_pink}-}}}1
+    {&}{{{\color{ce_pink}&}}}1
+    {<<}{{{\color{ce_pink}<<}}}2
+    {>>}{{{\color{ce_pink}>>}}}2
+    {<}{{{\color{ce_pink}<}}}1
+    {>}{{{\color{ce_pink}>}}}1
+    {->}{{{\color{ce_pink}->}}}2
+    {1}{{{\color{ce_violet}1}}}1
+    {2}{{{\color{ce_violet}2}}}1
+    {3}{{{\color{ce_violet}3}}}1
+    {4}{{{\color{ce_violet}4}}}1
+    {5}{{{\color{ce_violet}5}}}1
+    {6}{{{\color{ce_violet}6}}}1
+    {7}{{{\color{ce_violet}7}}}1
+    {8}{{{\color{ce_violet}8}}}1
+    {9}{{{\color{ce_violet}9}}}1
+    {0}{{{\color{ce_violet}0}}}1
+    {this}{{{\color{ce_lime}this}}}1
+    {if}{{{\color{ce_pink}if}}}1
+    {do}{{{\color{ce_pink}do}}}1
+    {for}{{{\color{ce_pink}for}}}1
+    {else}{{{\color{ce_pink}else}}}1
+    {then}{{{\color{ce_pink}then}}}1
+    {break}{{{\color{ce_pink}break}}}1
+    {continue}{{{\color{ce_pink}continue}}}1
+    {public}{{{\color{ce_pink}public}}}1
+    {private}{{{\color{ce_pink}private}}}1
+    {while}{{{\color{ce_pink}while}}}1
+    {continue}{{{\color{ce_pink}continue}}}1
+    {nullptr}{{{\color{ce_violet}nullptr}}}1
+    {NULL}{{{\color{ce_violet}NULL}}}1,
+}
+
+\lstset%
+    {
+    basicstyle=\ttfamily,
+    frame=tb,
+    aboveskip=1mm,
+    belowskip=1mm,
+    showstringspaces=true,
+    columns=flexible,
+    breaklines=true,
+    breakatwhitespace=true,
+    tabsize=2,
+}

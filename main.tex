@@ -1,0 +1,413 @@
+\documentclass[a4paper,9pt,landscape]{scrartcl}
+\input{headers/standard_header}
+\input{headers/layout_formating}
+\input{headers/code_header}
+\input{headers/math_header}
+
+\geometry{margin=4mm,landscape}
+\setlength{\columnsep}{4pt}
+\setlength{\columnseprule}{0.4pt}
+\setlist{nosep,leftmargin=*,topsep=0pt,parsep=0pt,partopsep=0pt}
+
+\newcommand{\R}{\mathbb{R}}
+\newcommand{\E}{\mathbb{E}}
+\newcommand{\softmax}{\mathrm{softmax}}
+\newcommand{\relu}{\mathrm{ReLU}}
+\renewcommand{\vec}[1]{\bm{#1}}
+\newcommand{\dd}[2]{\frac{\partial #1}{\partial #2}}
+
+\title{\vspace{-2.5em}CS231N Midterm Cheatsheet}
+\author{}\date{}
+
+\begin{document}
+\begin{multicols*}{3}
+{\centering\large\textbf{CS231N Midterm Cheatsheet}\par\vspace{2pt}}
+\scriptsize
+\setlength{\abovedisplayskip}{1pt}
+\setlength{\belowdisplayskip}{1pt}
+\setlength{\abovedisplayshortskip}{0pt}
+\setlength{\belowdisplayshortskip}{0pt}
+\setlength{\jot}{1pt}
+
+%==================================================================
+\section{Image Classification \& Linear Classifiers}
+\textit{Notation}: $x_i\!\in\!\R^D$ = $i$-th image flattened to a vector ($D{=}HWC$); $y_i\!\in\!\{1,..,C\}$ = its label; $C$ = \#classes; $N$ = \#train examples; $W\!\in\!\R^{C\times D}$ = weight matrix (one row $W_k\!\in\!\R^D$ per class); $b\!\in\!\R^C$ = bias; $s=Wx+b\!\in\!\R^C$ = vector of class scores ($s_k$ = score of class $k$); $p\!\in\!\Delta^C$ = softmax probabilities (sum to 1); $\lambda$ = regularisation strength; $L$ = loss.
+\textit{Symbols}: $a^\top$ = transpose (row $\leftrightarrow$ column); $a^\top b{=}\sum_i a_i b_i$ = dot product; $a\,b^\top$ = outer product (matrix); $\mathbb{1}[\cdot]$ = indicator (1 if true, else 0); $e_k$ = one-hot vector with a 1 in position $k$; $\nabla_w L$ = gradient of $L$ w.r.t.\ $w$; $\dd{L}{W}$ = matrix of partial derivatives, same shape as $W$.
+\textbf{Data split}: train / val (hyperparams) / test (touched once). $k$-fold CV: split train into $k$ folds, average val acc.
+
+\subsection{k-Nearest Neighbors}
+Predict label of $x$ by majority vote over $k$ nearest training points.
+$$d_{L1}(x,x')=\sum_p|x_p-x'_p|,\;\; d_{L2}(x,x')=\sqrt{\sum_p(x_p-x'_p)^2}$$
+$L_2$ rotation-invariant; $L_1$ axis-dependent. Train $O(1)$, test $O(N)$. Bad for raw pixels (curse of dim.).
+
+\subsection{Linear Classifier}
+Scores $s=Wx+b$, $W\!\in\!\R^{C\times D}$, $x\!\in\!\R^D$. Predicted class $\hat y=\arg\max_k s_k$. Bias trick: $\tilde x=[x;1]\!\in\!\R^{D+1}$, $\tilde W=[W\,b]\!\in\!\R^{C\times(D+1)}\Rightarrow s=\tilde W\tilde x$.
+Views: \textbf{algebraic} (matmul); \textbf{visual} (each row $W_k$ = template, $s_k=W_k^\top x$); \textbf{geometric} (hyperplane $W_k^\top x{+}b_k{=}0$). Decision boundary between $i,j$: $(W_i{-}W_j)^\top x+(b_i{-}b_j)=0$.
+
+\subsection{Loss functions}
+\textbf{Multiclass SVM (hinge)}, margin $\Delta$: penalise every wrong class $j$ whose score is within $\Delta$ of the correct class $y_i$.
+$$L_i=\sum_{j\neq y_i}\max(0,\,s_j-s_{y_i}+\Delta),\quad L=\tfrac1N\!\sum_i L_i+\lambda R(W)$$
+Subgradient w.r.t.\ rows of $W$ (each $W_k\!\in\!\R^D$, so $\dd{L_i}{W_k}\!\in\!\R^D$ has the shape of one row):
+\begin{itemize}
+\item Wrong-class row $j\!\neq\!y_i$:\; $\dd{L_i}{W_j}=\mathbb{1}[\,s_j-s_{y_i}+\Delta>0\,]\,\cdot\,x_i^\top$ \\(margin violated $\Rightarrow$ push $W_j$ away from $x_i$).
+\item Correct-class row:\; $\dd{L_i}{W_{y_i}}=-\big(\sum_{j\neq y_i}\mathbb{1}[\,s_j-s_{y_i}+\Delta>0\,]\big)\,x_i^\top$ \\(pull $W_{y_i}$ toward $x_i$, scaled by \# violators).
+\end{itemize}
+Here $x_i^\top\!\in\!\R^{1\times D}$ is the input written as a row so the result has the row-shape of $W_k$.
+
+\textbf{Softmax / Cross-Entropy}: convert scores to probs, penalise $-\log$ of the true-class prob.
+$$p_k=\frac{e^{s_k}}{\sum_j e^{s_j}},\qquad L_i=-\log p_{y_i}=-s_{y_i}+\log\!\sum_j e^{s_j}$$
+Gradient on scores is the ``probs minus one-hot'' rule:
+$$\dd{L_i}{s_k}=p_k-\mathbb{1}[k{=}y_i]\quad\Rightarrow\quad\dd{L_i}{W}=(p-e_{y_i})\,x_i^\top$$
+($p-e_{y_i}\!\in\!\R^C$ is a column, $x_i^\top\!\in\!\R^{1\times D}$ a row, so the outer product has shape $C\!\times\!D$ matching $W$.)
+Numerical stability: replace $s_k$ by $s_k-\max_j s_j$ before exponentiating.
+At init ($W\!\approx\!0$): $L_i\approx\log C$ (CE), $L_i\approx C-1$ (SVM, $\Delta{=}1$). Softmax never $=0$; SVM hits $0$ once margin satisfied.
+\textbf{Regularizers}: $R_{L2}(W)=\sum W_{ij}^2$ ($\nabla = 2W$, weight decay), $R_{L1}=\sum|W_{ij}|$ (sparse), elastic net.
+SVM+$L_2$ $\Rightarrow$ max-margin: minimize $\tfrac12\|W\|^2$ s.t. correct margin.
+
+%==================================================================
+\section{Optimization}
+\textit{Notation}: $w$ = parameter vector (weights), $\eta$ = learning rate, $L(w)$ = loss, $g_t{=}\nabla_w L_{B_t}(w_{t-1})$ = stochastic gradient on minibatch $B_t$ at step $t$, $v$ = velocity (momentum buffer, same shape as $w$), $G$ or $v_t$ = running 2nd-moment of $g$ (per-param, elementwise), $m_t$ = running 1st-moment, $\rho,\beta_1,\beta_2$ = decay rates, $\varepsilon$ = small const ($10^{-8}$) for numerical safety, $\odot$ = elementwise, $H{=}\nabla^2 L$ = Hessian.
+Gradient: $\nabla_w L$, steepest-descent direction $-\nabla L/\|\nabla L\|$.
+\textbf{Numerical (centered)}: $\dd{L}{w_i}\!\approx\!\frac{L(w+he_i)-L(w-he_i)}{2h}$, $h{\sim}10^{-5}$, error $O(h^2)$. Relative err vs analytic: $\frac{|g_a-g_n|}{\max(|g_a|,|g_n|)}<10^{-7}$ ok.
+
+\textbf{SGD (mini-batch)}: $w\!\leftarrow\!w-\eta\,g$, $|B|\!\in\![32,512]$.
+\textbf{Momentum} ($v$ = velocity, init 0): $v\!\leftarrow\!\rho v-\eta g$;\;$w\!\leftarrow\!w+v$;\;$\rho{\approx}0.9$ friction. Equiv form: $v\!=\!\rho v+g;\,w\!=\!w-\eta v$.
+\textbf{Nesterov}: $v\!\leftarrow\!\rho v-\eta\nabla L(w+\rho v)$;\,$w\!+=\!v$ (grad evaluated at lookahead point).
+\textbf{AdaGrad} ($G$ = sum of squared grads, per-param): $G\!+=\!g\odot g$;\,$w\!-=\!\eta\,g/(\sqrt{G}+\varepsilon)$. LR shrinks monotonically.
+\textbf{RMSProp}: replace $G$ by EMA of $g^2$: $G\!\leftarrow\!\beta G+(1{-}\beta)g\odot g$;\,$w\!-=\!\eta g/(\sqrt G+\varepsilon)$, $\beta{\approx}0.99$.
+\textbf{Adam} = momentum + RMSProp + bias-correction. $m_t$ = EMA of $g$ (1st mom), $v_t$ = EMA of $g^2$ (2nd mom), both init 0:
+\begin{align*}
+m_t&=\beta_1 m_{t-1}+(1-\beta_1)g_t\\
+v_t&=\beta_2 v_{t-1}+(1-\beta_2)\,g_t\!\odot\!g_t\\
+\hat m_t&=m_t/(1-\beta_1^t),\quad \hat v_t=v_t/(1-\beta_2^t)\\
+w_t&=w_{t-1}-\eta\,\hat m_t/(\sqrt{\hat v_t}+\varepsilon)
+\end{align*}
+Defaults: $\beta_1{=}0.9,\beta_2{=}0.999,\varepsilon{=}10^{-8},\eta{=}10^{-3}$. Bias-correction critical at start (else $m,v$ biased toward 0). AdamW: decouple weight decay, add $w\!-=\!\eta\lambda w$ outside the $\sqrt{\hat v}$ rescaling.
+
+\textbf{LR schedules} ($t$ = step, $T$ = total, $T_w$ = warmup): step $\eta_t=\eta_0\gamma^{\lfloor t/s\rfloor}$;\; exp $\eta_t=\eta_0 e^{-kt}$;\; $1/t$: $\eta_t=\eta_0/(1+kt)$;\; cosine $\eta_t=\tfrac12\eta_0\!\left(1+\cos\tfrac{t\pi}{T}\right)$;\; warmup linear $\eta_t=\eta_0\,t/T_w$ for $t<T_w$.
+\textbf{Linear scaling rule}: $\eta\propto |B|$ (Goyal et al.).
+\textbf{Newton}: $w\!\leftarrow\!w-H^{-1}\nabla L$ ($H$ = Hessian); infeasible at scale. L-BFGS approximates $H^{-1}$ from past grads, full-batch only.
+
+%==================================================================
+\section{Neural Networks}
+\textit{Notation}: $x$ = layer input, $W_\ell,b_\ell$ = weights/bias of layer $\ell$, $a_\ell{=}W_\ell h_{\ell-1}+b_\ell$ = pre-activation, $h_\ell{=}\sigma(a_\ell)$ = activation, $\sigma$ = nonlinearity, $n_{in},n_{out}$ = fan-in / fan-out of a layer.
+2-layer MLP: $h=\sigma(W_1 x+b_1),\;s=W_2 h+b_2$. Universal approx (1 hidden, enough units).
+
+\textbf{Activations \& derivatives}:
+\begin{itemize}
+\item Sigmoid $\sigma(z){=}\frac{1}{1+e^{-z}};\;\sigma'{=}\sigma(1-\sigma)\!\le\!1/4$.
+\item $\tanh(z)=2\sigma(2z)-1;\;\tanh'=1-\tanh^2 z$.
+\item ReLU $\relu(z){=}\max(0,z);\;\relu'{=}\mathbb{1}[z>0]$.
+\item Leaky $\max(\alpha z,z),\,\alpha{=}0.01$; ELU $z(z\!\ge\!0),\,\alpha(e^z{-}1)$ else.
+\item GELU $\approx z\,\Phi(z)$;\; Swish $z\sigma(z)$.
+\item Softplus $\log(1+e^z),\;'\,=\sigma(z)$.
+\end{itemize}
+
+\textbf{Preprocessing}: $\tilde x=(x-\mu)/\sigma$ per-channel; PCA whitening $\tilde x=\Lambda^{-1/2}U^\top(x-\mu)$.
+\textbf{Init}: Xavier $\mathrm{Var}(W){=}1/n_{in}$ (or $2/(n_{in}{+}n_{out})$, tanh); He $\mathrm{Var}(W){=}2/n_{in}$ (ReLU). Sample $W_{ij}\sim\mathcal N(0,\mathrm{Var})$.
+
+\subsection{Backpropagation}
+Chain rule on a DAG. For $z=f(x,y)$: $\dd{L}{x}=\dd{L}{z}\dd{z}{x}$.
+\textbf{Gate gradients}:
+\begin{itemize}
+\item add: $z=x+y\Rightarrow \dd{L}{x}{=}\dd{L}{y}{=}\dd{L}{z}$ (distributor).
+\item mul: $z=xy\Rightarrow \dd{L}{x}=y\,\dd{L}{z},\;\dd{L}{y}=x\,\dd{L}{z}$ (swap).
+\item max: routes upstream grad to argmax input.
+\item branch (copy): sums incoming grads.
+\item exp: $z=e^x\Rightarrow \dd{L}{x}=z\,\dd{L}{z}$.
+\item div: $z=x/y\Rightarrow \dd{L}{x}=\tfrac{1}{y}\dd{L}{z},\;\dd{L}{y}=-\tfrac{x}{y^2}\dd{L}{z}$.
+\end{itemize}
+\textbf{Matrix forms}: $y=Wx+b$:
+$$\dd{L}{x}=W^\top\dd{L}{y},\;\;\dd{L}{W}=\dd{L}{y}\,x^\top,\;\;\dd{L}{b}=\dd{L}{y}$$
+Batched ($Y=XW^\top+\mathbf 1 b^\top$, $X\!\in\!\R^{N\times D}$):
+$\dd{L}{X}=\dd{L}{Y}W,\;\dd{L}{W}=\dd{L}{Y}^\top X,\;\dd{L}{b}=\sum_n\dd{L}{Y_n}$.
+\textbf{Softmax+CE} fused: $\dd{L}{s}=p-y$ (one-hot).
+\textbf{Sigmoid+BCE}: $\dd{L}{s}=\sigma(s)-y$.
+
+%==================================================================
+\section{Convolutional Networks}
+\textit{Notation}: $C_{in},C_{out}{=}K$ = in/out channels, $H,W$ = spatial in, $H',W'$ = spatial out, $F$ = filter (kernel) size, $S$ = stride, $P$ = zero-pad each side, $N$ = batch size.
+Input $N\!\times\!C_{in}\!\times\!H\!\times\!W$; $K$ filters each $C_{in}\!\times\!F\!\times\!F$; stride $S$, pad $P$.
+
+\textbf{Output shape} $N\!\times\!K\!\times\!H'\!\times\!W'$ with
+$$H'=\Big\lfloor\tfrac{H-F+2P}{S}\Big\rfloor+1,\quad W'=\Big\lfloor\tfrac{W-F+2P}{S}\Big\rfloor+1$$
+\textbf{Same pad}: $P=(F{-}1)/2$ keeps $H',W'{=}H,W$ when $S{=}1$. \textbf{Valid}: $P{=}0$.
+\textbf{\# params (weights+bias)}:
+$$\#\text{params}=K\,(C_{in}F^2+1)$$
+\textbf{\# mult-add (per input)}:
+$$\#\text{MAC}=H'\,W'\cdot K\cdot C_{in}F^2$$
+($\#\text{FLOPs}\!\approx\!2\cdot\#\text{MAC}$; multiply by $N$ for a batch.)
+\textbf{Activation size}: $N\,K\,H'W'$ values.
+
+\textbf{Pool} $F\!\times\!F$ stride $S$ (no pad): $H'{=}(H{-}F)/S+1$; \textbf{0 params}, $\#\text{MAC}{=}0$ (just compares/avgs). Max-pool grad routes to argmax.
+\textbf{FC layer} $D_{in}\!\to\!D_{out}$: params $=D_{in}D_{out}+D_{out}$, MACs $=D_{in}D_{out}$.
+\textbf{$1{\times}1$ conv} ($C_{in}\!\to\!C_{out}$, spatial $H\!\times\!W$): params $C_{in}C_{out}+C_{out}$, MACs $H W C_{in}C_{out}$ — channel mix / bottleneck.
+\textbf{Depthwise sep} ($F{\times}F$, $C{\to}C'$): MACs $H'W'(C F^2+CC')$ vs std $H'W'CC'F^2$, factor $\approx 1/C'+1/F^2$.
+\textbf{Stack of two $3{\times}3$} (channels $C$): RF $5$, params $2\!\cdot\!9C^2{=}18C^2$ vs one $5{\times}5$ $25C^2$.
+\textbf{Receptive field}: stack $L$ convs $F\!\times\!F$ stride 1 $\Rightarrow$ $\text{RF}{=}1+L(F{-}1)$. With strides: $\text{RF}_\ell{=}\text{RF}_{\ell-1}+(F_\ell{-}1)\!\prod_{i<\ell}S_i$.
+\textbf{Conv as matmul (im2col)}: unroll patches into columns, single GEMM.
+\textbf{Conv backward}: input grad $=$ full-conv of dout with flipped filter; weight grad $=$ correlation of input with dout.
+
+%==================================================================
+\section{CNN Architectures}
+\textbf{LeNet-5}: $[C{-}P]\!\times\!2\to\text{FC}$.
+\textbf{AlexNet} (2012): 5 conv + 3 FC, 60M params, ReLU + dropout(0.5) + L2 + augmentation.
+\textbf{VGG-16}: only $3{\times}3,S{=}1,P{=}1$ conv \& $2{\times}2,S{=}2$ pool; 138M params (mostly FC).
+\textbf{GoogLeNet/Inception}: parallel $1{\times}1,3{\times}3,5{\times}5,$pool concatenated; $1{\times}1$ bottleneck; GAP head; aux classifiers; 5M params.
+\textbf{ResNet}: residual $y=F(x)+x$. Bottleneck $1{\times}1{\to}3{\times}3{\to}1{\times}1$. Identity shortcut $\Rightarrow$ gradient $\dd{L}{x}=\dd{L}{y}(I+F'(x))$ has identity term (no vanish).
+\textbf{ResNeXt}: grouped conv. \textbf{DenseNet}: $x_\ell=H([x_0,\dots,x_{\ell-1}])$. \textbf{SENet}: channel attention $s=\sigma(W_2\,\relu(W_1\,\text{GAP}(x)));\,x'=s\odot x$.
+\textbf{MobileNet}: depthwise sep $=$ depthwise conv ($C_{in}F^2$ per out pix) $+$ pointwise $1{\times}1$ ($C_{in}C_{out}$): factor $\approx 1/C_{out}+1/F^2$ FLOPs.
+
+\subsection{Normalization}
+Let $x\in\R^{N\times C\times H\times W}$.
+\textbf{BN}: per-channel over $(N,H,W)$: $\hat x=(x-\mu)/\sqrt{\sigma^2+\varepsilon}$, $y=\gamma\hat x+\beta$ ($\gamma,\beta\!\in\!\R^C$).
+Train uses batch stats; test uses running mean/var $\mu_r\!\leftarrow\!(1{-}\alpha)\mu_r+\alpha\mu_B$.
+BN backward: $\dd{L}{x_i}=\frac{1}{m\sigma}\!\big[m\,d\hat x_i-\!\sum_j d\hat x_j-\hat x_i\!\sum_j d\hat x_j\hat x_j\big]$ where $d\hat x=\gamma\,dy$.
+\textbf{LN}: per-sample over $(C,H,W)$ (Transformers).
+\textbf{IN}: per-sample-per-channel over $(H,W)$ (style transfer).
+\textbf{GN}: split $C$ into $G$ groups; over $(C/G,H,W)$ — batch independent.
+
+\subsection{Regularization \& generalization}
+\textbf{Dropout (train)}: $\tilde h=h\odot m,\; m_i\!\sim\!\text{Bern}(p)$; rescale by $1/p$ (inverted dropout) so test is plain. Equiv to ensembling $2^n$ subnets.
+\textbf{Data aug}: flips, crops, color jitter, mixup $\tilde x=\lambda x_i+(1-\lambda)x_j$, label likewise; cutout.
+\textbf{Label smoothing}: $y_k=(1-\epsilon)\mathbb{1}[k{=}y]+\epsilon/C$.
+\textbf{Early stop} when val loss rises.
+
+\subsection{Transfer learning}
+Feature extract: freeze backbone, train new head ($\eta$ normal). Fine-tune: unfreeze top, $\eta{\sim}10^{-4}$ to avoid wrecking pretrained weights. Layer-wise LR decay common.
+
+%==================================================================
+\section{RNNs / LSTM / GRU}
+\textit{Notation}: $x_t$ = input at step $t$, $h_t$ = hidden state (memory), $c_t$ = LSTM cell state, $y_t$ = output, $W_{hh},W_{xh},W_{hy}$ = recurrent / input / output weight matrices, $\odot$ = elementwise. Gates $i,f,o,g$ are vectors of same dim as $h$.
+
+\textbf{Idea}: process a sequence one step at a time, carrying a hidden vector $h_t$ that summarises everything seen so far. \emph{Same} weights $W$ are reused at every step (parameter sharing across time $\Rightarrow$ handles variable-length input, generalises across positions). Recurrence:
+$$h_t=f_W(h_{t-1},x_t),\quad y_t=g_W(h_t)$$
+Unrolling in time gives a deep feed-forward net of depth $T$ with tied weights; train with \emph{backprop through time} (BPTT). Input/output patterns: one-to-many (captioning), many-to-one (sentiment), many-to-many aligned (tagging) or seq2seq (translation).
+
+\textbf{Vanilla RNN}: $h_t=\tanh(W_{hh}h_{t-1}+W_{xh}x_t+b_h)$,\; $y_t=W_{hy}h_t$.
+At each step we mix the previous summary $h_{t-1}$ with the new input $x_t$ through one linear layer + nonlinearity.
+
+\textbf{BPTT}: $L=\sum_t L_t$, $\dd{L}{W_{hh}}=\sum_t\sum_{k\le t}\dd{L_t}{h_t}\!\Big(\!\prod_{j=k+1}^t\dd{h_j}{h_{j-1}}\Big)\dd{h_k}{W_{hh}}$, with $\dd{h_j}{h_{j-1}}{=}\mathrm{diag}(1{-}\tanh^2)\,W_{hh}^\top$.
+Gradient is a \emph{product} of $T$ Jacobians $\Rightarrow$ if largest singular value of $W_{hh}<1$ it shrinks (vanish, can't learn long deps), if $>1$ it blows up (explode, NaNs). \textbf{Truncated BPTT}: backprop only $K$ steps to bound cost.
+\textbf{Fixes}: clip gradient if $\|g\|>\theta$: $g\leftarrow g\,\theta/\|g\|$ (explode); use gated units below (vanish).
+
+\subsection{LSTM}
+\textbf{Idea}: add a separate \emph{cell state} $c_t$ that acts as a memory ``conveyor belt''. At each step, learnable gates decide what to \emph{forget} from old memory ($f$), what \emph{new} content to write ($i,g$), and how much memory to \emph{output} as the hidden state ($o$). All gates are sigmoids in $(0,1)$ acting as soft on/off switches; $g$ is the candidate update (tanh).
+$$\begin{pmatrix}i\\f\\o\\g\end{pmatrix}=\begin{pmatrix}\sigma\\\sigma\\\sigma\\\tanh\end{pmatrix}\!\!\Big(W\!\begin{pmatrix}h_{t-1}\\x_t\end{pmatrix}+b\Big)$$
+$$c_t=f\odot c_{t-1}+i\odot g,\qquad h_t=o\odot\tanh(c_t)$$
+\textbf{Why it works}: the cell update is \emph{additive}, so $\dd{c_t}{c_{t-1}}{=}\mathrm{diag}(f)$ — backprop along the cell path is just elementwise multiplication by forget gates, no repeated matmul $\Rightarrow$ gradient ``highway'' that preserves long-range signal. Forget-gate bias init to $1$ so early in training memory is kept by default.
+
+\textbf{GRU} (lighter LSTM, no separate cell): reset gate $r_t{=}\sigma(\cdot)$ controls how much of the past to use when proposing $\tilde h$; update gate $z_t{=}\sigma(\cdot)$ interpolates between old state and new candidate.
+$\tilde h=\tanh(W_h x_t+U_h(r\odot h_{t-1}))$, $h_t=(1-z)\odot h_{t-1}+z\odot\tilde h$.
+
+\subsection{LM, captioning, seq2seq}
+\textbf{Char/word LM}: at each step predict next token $p(x_t|x_{<t})=\softmax(W_{hy}h_t)$, train by teacher forcing (feed true $x_t$, not the model's prediction). Sample with temperature $\tau$: $p\propto\exp(s/\tau)$ ($\tau\!<\!1$ peaky/greedy-ish, $\tau\!>\!1$ more uniform). \textbf{Beam search} keeps top-$B$ partial sequences by log-prob.
+\textbf{Captioning}: CNN encodes image to feature $v$, used as $h_0$ or concatenated to each decoder input; RNN generates caption word-by-word with teacher forcing in train, sampling at test.
+\textbf{Seq2Seq}: encoder RNN compresses source into final state $h^E_T$ that initialises decoder $h^D_0$ — single-vector bottleneck loses info on long inputs; \textbf{attention} fixes this by letting the decoder look back at all encoder states each step.
+
+%==================================================================
+\section{Attention \& Transformers}
+\textit{Notation}: $X\!\in\!\R^{N\times d}$ = sequence of $N$ tokens, dim $d$. $Q,K,V$ = queries/keys/values (rows are tokens). $d_k$ = per-head key dim. $h$ = \#heads. $W^Q,W^K,W^V,W^O$ = learned projection matrices. PE = positional encoding.
+
+\textbf{Idea}: replace recurrence by direct, content-based lookup between every pair of tokens. Each token emits a \emph{query} $q_i$ asking ``what info do I need?'', a \emph{key} $k_j$ advertising ``what info I have'', and a \emph{value} $v_j$ carrying that info. Attention weight $A_{ij}{\propto}\exp(q_i^\top k_j/\sqrt{d_k})$ is a soft, differentiable dictionary lookup; the output is $\sum_j A_{ij}v_j$. Unlike RNNs every token sees every other in $O(1)$ steps $\Rightarrow$ much better long-range modeling and full parallelism over $t$.
+
+\textbf{Scaled dot-product}: $Q\!\in\!\R^{N_q\times d_k},K\!\in\!\R^{N_k\times d_k},V\!\in\!\R^{N_k\times d_v}$
+$$A=\softmax\!\Big(\!\tfrac{QK^\top}{\sqrt{d_k}}\!\Big)\in\R^{N_q\times N_k},\quad \mathrm{Attn}=AV\in\R^{N_q\times d_v}$$
+Softmax is row-wise (each query's weights sum to 1). Why $\sqrt{d_k}$: if $q,k$ iid $\mathcal N(0,1)$ then $\mathrm{Var}(q\!\cdot\!k){=}d_k$; without rescaling logits grow with $d_k$, softmax saturates, gradient on losing keys vanishes.
+
+\textbf{Self-attention}: $Q{=}XW^Q$, $K{=}XW^K$, $V{=}XW^V$ from the \emph{same} sequence; permutation-equivariant (no notion of order $\Rightarrow$ need PE). Complexity $O(N^2 d)$ time, $O(N^2)$ memory in the attention matrix — the main scaling bottleneck.
+\textbf{Cross-attention}: $Q$ from one sequence (e.g. decoder), $K,V$ from another (encoder) $\Rightarrow$ used to read from a memory.
+\textbf{Masked / causal SA}: set $A_{ij}{=}-\infty$ for $j>i$ pre-softmax so token $i$ only attends to $\le i$; needed for autoregressive decoding so train (parallel, all positions) matches test (one token at a time).
+\textbf{Padding mask}: same trick to ignore padding tokens in variable-length batches.
+
+\textbf{Multi-head} ($h$ heads, $d_k{=}d_v{=}d/h$):
+$\mathrm{MHA}(X)=[\mathrm{head}_1,\dots,\mathrm{head}_h]W^O$, $\mathrm{head}_i=\mathrm{Attn}(XW^Q_i,XW^K_i,XW^V_i)$.
+Same total compute as one big head, but each head can specialise (syntactic, positional, semantic relations) — like multiple filters in a conv layer. $W^O\!\in\!\R^{d\times d}$ mixes heads.
+
+\textbf{Why PE}: SA is permutation-equivariant, so $f(\pi X){=}\pi f(X)$ — without position info ``dog bites man'' $=$ ``man bites dog''. Add $PE\!\in\!\R^{N\times d}$ to token embeddings.
+\textbf{Sinusoidal} (fixed, extrapolates to longer seqs):
+$$PE_{p,2i}=\sin(p/10000^{2i/d}),\;PE_{p,2i+1}=\cos(p/10000^{2i/d})$$
+Different frequencies $\Rightarrow$ relative positions can be expressed as linear functions of PE. \textbf{Learned} PE: a trainable table (length-limited). \textbf{RoPE}: rotates each $(q,k)$ pair of dims by angle $p\theta_i$ inside the dot product $\Rightarrow$ encodes \emph{relative} position directly in $q^\top k$.
+
+\textbf{Transformer block} (Pre-LN, modern default):
+\begin{align*}
+x'&=x+\mathrm{MHA}(\mathrm{LN}(x))\\
+y&=x'+\mathrm{MLP}(\mathrm{LN}(x'))
+\end{align*}
+\textbf{Residuals} $\Rightarrow$ gradient highway $+$ each sublayer learns a refinement. \textbf{LayerNorm} (over feature dim, per token) stabilises across variable-length / batch-independent settings. Pre-LN trains stably without warmup; original Post-LN ($x{+}\mathrm{Sublayer}(x)$ then LN) needs warmup.
+MLP (a.k.a. FFN): $\mathrm{MLP}(z)=W_2\,\mathrm{GELU}(W_1 z+b_1)+b_2$, hidden $d_{\mathrm{ff}}{\sim}4d$. Acts position-wise, mixing channels (attention mixes tokens, MLP mixes features).
+\textbf{Decoder block}: masked SA $\to$ cross-attn (Q from decoder, K,V from encoder) $\to$ MLP, all with residual+LN.
+
+\textbf{Param count} per block $\approx 4d^2$ (QKVO) $+$ $2\cdot d\cdot d_{\mathrm{ff}}{=}8d^2$ (MLP) $\Rightarrow 12d^2$. Plus $2$ LN ($2d$ each) and biases.
+\textbf{FLOPs} per block (seq $N$): MHA $\approx 4Nd^2$ (proj) $+$ $2N^2 d$ (attn matmuls); MLP $\approx 8Nd^2$.
+\textbf{KV cache} (inference): cache $K,V$ from past tokens $\Rightarrow$ each new token costs $O(Nd)$ instead of $O(N^2 d)$; memory grows linearly in $N$.
+\textbf{Efficient variants}: sparse / local-window / Longformer / BigBird ($O(N)$ or $O(N\log N)$); Linformer / Performer (low-rank or kernel approx); FlashAttention (exact, IO-aware tiling, no $N^2$ materialisation).
+
+\textbf{Training recipes}: AdamW ($\beta_1{=}0.9,\beta_2{=}0.95\text{--}0.999$), weight decay $0.05{-}0.1$ on non-LN/non-bias params, linear warmup then cosine decay, label smoothing 0.1, dropout 0.1, gradient clip $1.0$, large batch via accumulation. Init: small std (e.g. $0.02$); often scale residual branch by $1/\sqrt{2L}$.
+
+\textbf{Common families}:
+\begin{itemize}
+\item \textbf{Encoder-only} (BERT, ViT): bidirectional SA; classification / representation. BERT pretrain = MLM (predict 15\% masked tokens) + NSP.
+\item \textbf{Decoder-only} (GPT, LLaMA): causal SA; trained on next-token prediction; generation by sampling.
+\item \textbf{Encoder-decoder} (T5, original Transformer): translation, seq2seq; cross-attn lets decoder read encoder memory.
+\end{itemize}
+
+\textbf{ViT}: image $H\!\times\!W\!\times\!3$ split into $N{=}HW/P^2$ non-overlapping patches (e.g. $P{=}16$); flatten each to $3P^2$, linear embed to $d$; prepend learned $[\text{CLS}]$ token; add (learned) PE; pass through standard Transformer encoder; classify from $[\text{CLS}]$ output. Conv inductive bias (locality, translation equivariance) is gone $\Rightarrow$ needs large pretraining (JFT) or strong aug+distillation (DeiT).
+\textbf{Swin}: hierarchical, attention inside shifted local windows $\Rightarrow$ linear in image size, brings back locality.
+\textbf{DETR} (see \S Detection): set-prediction Transformer over CNN features, removes NMS/anchors.
+
+%==================================================================
+\section{Object Detection}
+\textit{Notation}: $A,B$ = bounding boxes, GT = ground truth, fg/bg = foreground/background, anchor = predefined reference box, $(x_a,y_a,w_a,h_a)$ = anchor center+size, $t_*$ = regression targets, $p_t$ = predicted prob of true class.
+\textbf{IoU}$(A,B)=|A\cap B|/|A\cup B|$. TP if IoU$\ge 0.5$ (PASCAL) or averaged over $[0.5\!:\!0.05\!:\!0.95]$ (COCO).
+\textbf{Precision}$=\frac{TP}{TP+FP}$,\;\textbf{Recall}$=\frac{TP}{TP+FN}$. AP $=\int_0^1 P(R)\,dR$;\; mAP avg over classes.
+\textbf{NMS}: while boxes left: pick highest score box $b^*$, remove all $b$ with IoU$(b,b^*)>\tau$.
+\textbf{Bbox regression target} (Fast R-CNN): given anchor $(x_a,y_a,w_a,h_a)$ and GT $(x,y,w,h)$:
+$$t_x{=}\tfrac{x-x_a}{w_a},\,t_y{=}\tfrac{y-y_a}{h_a},\,t_w{=}\log\tfrac{w}{w_a},\,t_h{=}\log\tfrac{h}{h_a}$$
+Loss: smooth $L_1$: $\mathrm{sL}_1(z)=\begin{cases}0.5z^2&|z|<1\\|z|-0.5&\text{else}\end{cases}$
+\textbf{R-CNN}: SS$\to$2k crops$\to$CNN per crop$\to$SVM+regress. Slow.
+\textbf{Fast R-CNN}: CNN once $\to$ RoI Pool $\to$ FC heads (cls + reg). Multi-task $L=L_{cls}+\lambda[\text{fg}]L_{loc}$.
+\textbf{Faster R-CNN}: + RPN with $k$ anchors per location; 4-task loss. End-to-end.
+\textbf{Mask R-CNN}: + per-RoI FCN mask head; RoI Align (bilinear, no quantization).
+\textbf{One-stage}: dense predict at every grid cell over anchors.
+\textbf{Focal loss}: $FL(p_t)=-\alpha_t(1-p_t)^\gamma\log p_t$, $\gamma{\sim}2$ down-weights easy bg.
+\textbf{DETR}: Transformer enc-dec + $N$ object queries; bipartite Hungarian matching loss; no anchors/NMS.
+
+%==================================================================
+\section{Segmentation \& Visualization}
+\textbf{Semantic} per-pixel softmax CE.
+\textbf{FCN}: Conv\,$\to$\,$1{\times}1$ to $C$ classes\,$\to$ upsample. \textbf{U-Net}: encoder-decoder + skip concat.
+\textbf{Upsampling}: nearest, bilinear, transposed conv (output size $= S(H{-}1)+F-2P$), unpooling (saved indices).
+Transposed conv = forward of conv backward; can cause checkerboard (use $F$ divisible by $S$).
+
+\textbf{Saliency}: $M_p=\max_c\big|\dd{s_y}{x_{p,c}}\big|$.
+\textbf{Guided BP}: in ReLU backward keep grad only if both input$>0$ \emph{and} dout$>0$.
+\textbf{Grad-CAM}: $\alpha_k=\tfrac1Z\sum_{ij}\dd{s_y}{A^k_{ij}}$;\; map $L=\relu(\sum_k\alpha_k A^k)$.
+\textbf{Activation max}: $x^*=\arg\max_x f_i(x)-\lambda\|x\|^2$ via grad ascent.
+\textbf{DeepDream}: ascent on $\|f_\ell(x)\|^2$.
+\textbf{Style transfer}: features $F^\ell\!\in\!\R^{C\times HW}$; Gram $G^\ell=F^\ell(F^\ell)^\top\!\in\!\R^{C\times C}$.
+$$L=\alpha\!\sum_\ell\!\|F^\ell{-}F^\ell_c\|^2+\beta\!\sum_\ell w_\ell\|G^\ell{-}G^\ell_s\|^2$$
+\textbf{FGSM}: $x'=x+\varepsilon\,\mathrm{sign}(\nabla_x L(x,y))$. PGD: iterate + project to $\ell_\infty$ ball.
+
+%==================================================================
+\section{Video Understanding}
+Input $T\!\times\!3\!\times\!H\!\times\!W$.
+\textbf{Single-frame CNN}: classify each frame, average.
+\textbf{Late fusion}: per-frame CNN $\to$ pool over $T$ $\to$ FC.
+\textbf{Early fusion}: stack $T$ frames in channel dim ($3T$ channels) at first conv.
+\textbf{3D CNN}: kernel $T'\!\times\!F\!\times\!F$; output $(T{-}T'{+}2P)/S{+}1$ in time. Params $K\,C_{in}\,T'F^2$.
+\textbf{C3D}: 3D VGG-style. \textbf{I3D}: inflate 2D ImageNet weights along time ($W^{3D}=W^{2D}/T'$).
+\textbf{Two-stream}: spatial RGB CNN + temporal optical-flow CNN, fuse.
+\textbf{CNN+LSTM}: per-frame features into LSTM.
+\textbf{SlowFast}: two pathways — Slow (low fps, large $C$), Fast (high fps, small $C$); lateral connections.
+\textbf{ViViT/TimeSformer}: factorized space then time attention.
+
+%==================================================================
+\section{Worked Backprop Examples}
+\subsection{Sigmoid CE — single neuron}
+$z=w^\top x+b,\;p=\sigma(z),\;L=-[y\log p+(1-y)\log(1-p)]$.
+$\dd{L}{p}=\frac{p-y}{p(1-p)},\;\dd{p}{z}=p(1-p)\Rightarrow\dd{L}{z}=p-y$.
+$\dd{L}{w}=(p-y)x,\;\dd{L}{b}=p-y$.
+
+\subsection{2-layer net (softmax CE)}
+Forward: $h=\relu(W_1 x+b_1),\;s=W_2 h+b_2,\;p=\softmax(s),\;L=-\log p_y$.\\
+Backward:
+\begin{align*}
+ds&=p-e_y\\
+dW_2&=ds\,h^\top,\;db_2=ds\\
+dh&=W_2^\top ds\\
+da_1&=dh\odot\mathbb{1}[a_1>0]\quad(a_1=W_1x+b_1)\\
+dW_1&=da_1\,x^\top,\;db_1=da_1
+\end{align*}
+With L2 reg $\lambda\|W\|^2$ add $2\lambda W$ to each $dW$.
+
+\subsection{Convolution backward (sketch)}
+$Y=X\!*\!W$ ($*$ = correlation). With upstream $dY$:
+$dW=X\!*\!dY$ (correlation), $\;dX=dY\,\tilde *\,\mathrm{flip}(W)$ (full conv).
+With im2col: forward $Y_{col}=W_{row}\,X_{col}$;\,$dW_{row}=dY_{col}\,X_{col}^\top$, $dX_{col}=W_{row}^\top dY_{col}$, then col2im.
+
+\subsection{Max-pool backward}
+For each window route $dY$ to the position of the max in the forward; others $0$.
+
+\subsection{LSTM backward — key piece}
+With $a=W[h_{t-1};x_t]+b$ split into $a_i,a_f,a_o,a_g$:
+$do=dh_t\odot\tanh c_t,\;dc_t\!+=\!dh_t\odot o\odot(1-\tanh^2 c_t)$.
+$df=dc_t\odot c_{t-1};\;di=dc_t\odot g;\;dg=dc_t\odot i;\;dc_{t-1}=dc_t\odot f$.
+Then through gate nonlinearities: $da_{i,f,o}=d(i,f,o)\odot\sigma(1-\sigma)$;\;$da_g=dg\odot(1-g^2)$.
+
+\subsection{Attention backward (sketch)}
+$S=QK^\top/\sqrt{d_k},\;A=\softmax(S),\;O=AV$.
+$dV=A^\top dO,\;dA=dO\,V^\top$.
+$dS_{ij}=A_{ij}(dA_{ij}-\sum_k A_{ik}dA_{ik})$ (softmax-Jacobian row).
+$dQ=dS\,K/\sqrt{d_k},\;dK=dS^\top Q/\sqrt{d_k}$.
+
+%==================================================================
+\section{Useful Derivations \& Numbers}
+\textbf{Softmax Jacobian}: $p{=}\softmax(s)\Rightarrow\dd{p_i}{s_j}=p_i(\delta_{ij}-p_j)$; with CE: $\dd{L}{s}{=}p{-}y$.\\
+\textbf{CE = NLL}: $L=-\sum_k y_k\log p_k$; one-hot $\Rightarrow L=-\log p_{y^*}$; $=$ KL$(y\|p)$ + const.\\
+\textbf{Why $\sqrt{d_k}$}: $q,k\!\sim\!\mathcal N(0,I_{d_k})\!\Rightarrow\!q^\top k$ has var $d_k$; without scaling softmax saturates $\to$ vanishing grad on losing keys.\\
+\textbf{Skip-conn grad}: $y{=}F(x){+}x\Rightarrow\dd{L}{x}{=}\dd{L}{y}(I+\dd{F}{x})$ — identity always passes grad.\\
+\textbf{Dropout}: inverted-dropout scales by $1/(1{-}p)$ at train so test forward is unchanged; else multiply weights by $(1-p)$ at test.\\
+\textbf{Adam vs SGD}: SGD+mom often best on convnets (better generalize); Adam dominant on RNNs/Transformers (sparse/stiff grads); use AdamW for proper weight decay.\\
+\textbf{RF w/ strides}: $\text{RF}_\ell{=}\text{RF}_{\ell-1}+(F_\ell{-}1)\prod_{i<\ell}S_i$; effective stride $\prod S_i$; pad doesn't change RF.\\
+\textbf{Conv counting}: VGG block $3{\times}3,\,C{\to}C,\,H{\times}W$: params $9C^2$, FLOPs $9C^2HW$, act $CHW$. $1{\times}1\,(C{\to}C')$: params $CC'$, FLOPs $CC'HW$.\\
+\textbf{IoU}: $A{=}(x_1^a..y_2^a),\,B$ idem. $x_1{=}\max(x_1^a,x_1^b),\dots,x_2{=}\min(\dots)$; Inter $=\max(0,x_2{-}x_1)\!\cdot\!\max(0,y_2{-}y_1)$; Union $=|A|+|B|-$Inter.\\
+\textbf{NMS}: \texttt{sort B by score; while B: b*=B.pop(0); keep+=[b*]; B=\{b: IoU(b,b*)<tau\}}.\\
+\textbf{Anchors/RPN}: $H_fW_fk$ proposals; cls head $2k$, reg head $4k$ per location.\\
+\textbf{Mixup}: $\tilde x{=}\lambda x_i{+}(1{-}\lambda)x_j,\,\tilde y{=}\lambda y_i{+}(1{-}\lambda)y_j,\,\lambda{\sim}\mathrm{Beta}(\alpha,\alpha)$.\quad\textbf{CutMix}: paste rect of $x_j$ into $x_i$, $\lambda$ = area frac.\\
+\textbf{Optical flow}: brightness const. $I_x u+I_y v+I_t=0$; Lucas-Kanade locally; FlowNet/RAFT learn it.\\
+\textbf{Two-stream fusion}: spatial CNN(RGB) + temporal CNN(stacked $(u,v)$ over $L$ frames, $2L$ ch); late avg.\\
+\textbf{GAN obj}: $\min_G\max_D \E\log D(x)+\E\log(1-D(G(z)))$.\\[1pt]
+\textbf{BN backward (full)}, with $m$=batch:
+$d\gamma{=}\!\sum_i dy_i\hat x_i,\;d\beta{=}\!\sum_i dy_i,\;d\hat x_i{=}\gamma\,dy_i$;\;
+$d\sigma^2{=}-\tfrac12\!\sum_i d\hat x_i(x_i{-}\mu)(\sigma^2{+}\varepsilon)^{-3/2}$;\;
+$d\mu{=}-\!\sum_i d\hat x_i(\sigma^2{+}\varepsilon)^{-1/2}-\tfrac{2}{m}d\sigma^2\!\sum_i(x_i{-}\mu)$;\;
+$dx_i{=}d\hat x_i(\sigma^2{+}\varepsilon)^{-1/2}+\tfrac{2}{m}d\sigma^2(x_i{-}\mu)+\tfrac{1}{m}d\mu$.
+
+%==================================================================
+\section{Diagnostics \& Hyperparameter Tuning}
+\textbf{Loss curves}:
+\begin{itemize}
+\item Flat high $\to$ LR too low (or dead net).
+\item NaN / explodes $\to$ LR too high; clip grad; lower init.
+\item Train$\downarrow$, val flat/up $\to$ overfit (more reg/data/aug).
+\item Train$=$val high $\to$ underfit (bigger model, longer train).
+\item Big train$-$val gap with high train acc $\to$ overfit.
+\end{itemize}
+\textbf{Sanity}: tiny subset (e.g.\ 20 ex.) should overfit to $\sim$0 loss.
+\textbf{Search}: random $>$ grid; coarse-to-fine on log-scale ($\log\eta\!\sim\!\mathcal U[-5,-2]$, $\log\lambda\!\sim\!\mathcal U[-5,-1]$).
+\textbf{Track}: ratio $\|\Delta W\|/\|W\|\!\approx\!10^{-3}$ healthy.
+\textbf{Param/activation}: monitor std after each layer; should not collapse to 0 or blow up.
+
+\subsection{Hyperparam defaults}
+LR: SGD $0.1$ (cosine), Adam $3{\cdot}10^{-4}$;\;Momentum $0.9$;\;WD $5{\cdot}10^{-4}$ (CNN), $0.05$ (ViT, AdamW);\;Batch 256;\;Warmup 5 epochs;\;Cosine to 0.
+
+%==================================================================
+\section{Memory \& Compute Quick Math}
+Activations dominate memory in CNNs (esp. early layers). Params dominate in FCs.
+\textbf{GPU mem} $\approx$ params (×4 fp32 or ×2 fp16) + activations (per batch) + optimizer states + workspace.
+\textbf{Activation size} per layer $=N\!\cdot\!C\!\cdot\!H\!\cdot\!W\!\cdot$ bytes.
+\textbf{Mixed precision}: forward/backward in fp16, master in fp32, loss scaling by $S$ to avoid underflow.
+
+%==================================================================
+\section{Pitfalls}
+\begin{itemize}
+\item kNN: hyperparams via val, not test; $L_2$ rotation-inv, $L_1$ axis-dependent.
+\item Softmax never $0$; SVM hits $0$ once margin satisfied.
+\item Sanity check loss $\approx \log C$ at init; $\nabla$ on small $W$ should match numeric grad.
+\item Shape rule: $dW$ shape of $W$, $dx$ shape of $x$.
+\item Max gate: grad $\to$ argmax only; ReLU passes if input$>0$ else $0$.
+\item BN: train uses batch stats, test uses running; freeze BN with tiny batches.
+\item Same-pad needs odd $F$; otherwise asymmetric pad.
+\item Stack $3{\times}3$ $>$ $7{\times}7$: fewer params ($27C^2$ vs $49C^2$), more nonlin.
+\item Vanish in RNN $\to$ LSTM/GRU; explode $\to$ clip.
+\item SA is $O(N^2)$; PE required (else permutation-equivariant).
+\item Two-stage (Faster R-CNN) accurate; one-stage (YOLO/SSD/RetinaNet) fast.
+\item Transposed conv $\neq$ inverse; checkerboard if $F\!\nmid\!S$.
+\item Adam without bias-correction biases low at start.
+\item Gradient clipping helps RNNs/transformers w/ exploding grads.
+\item BN+Dropout combined can hurt (variance shift); usually use one.
+\end{itemize}
+
+\end{multicols*}
+\end{document}
